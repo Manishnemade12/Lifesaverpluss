@@ -30,15 +30,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          setTimeout(async () => {
+          const fetchProfile = async () => {
             // Fetch user profile
             const { data: profileData, error: profileError } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
-              .single();
+              .maybeSingle();
 
-            if (profileError) {
+            if (profileError || !profileData) {
               setProfile(null);
               setLoading(false);
               return;
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 .from('hospital_profiles')
                 .select('*')
                 .eq('id', session.user.id)
-                .single();
+                .maybeSingle();
               hospitalDetails = data;
             }
 
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 .from('responder_details')
                 .select('*')
                 .eq('id', session.user.id)
-                .single();
+                .maybeSingle();
               responderDetails = data;
             }
 
@@ -72,7 +72,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               responder_details: responderDetails,
             });
             setLoading(false);
-          }, 0);
+          };
+
+          fetchProfile();
         } else {
           setProfile(null);
           setLoading(false);

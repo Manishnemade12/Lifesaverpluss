@@ -9,6 +9,7 @@ export interface EmergencyContact {
   user_id: string;
   name: string;
   phone: string;
+  email: string;
   created_at: string;
 }
 
@@ -61,16 +62,17 @@ export const useEmergencyContacts = () => {
     };
   }, [user]);
 
-  const addContact = async (name: string, phone: string) => {
+  const addContact = async (name: string, phone: string, email: string = '') => {
     if (!user) return { error: 'User not authenticated' };
 
     const { data, error } = await supabase
       .from('emergency_contacts')
-      .insert({
+      .insert([{
         user_id: user.id,
         name,
-        phone
-      })
+        phone,
+        email
+      }])
       .select()
       .single();
 
