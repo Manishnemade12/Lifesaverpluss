@@ -23,73 +23,106 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
           const fetchProfile = async () => {
-            // Fetch user profile
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-
-            if (profileError || !profileData) {
-              setProfile(null);
-              setLoading(false);
-              return;
-            }
-
-            let hospitalDetails = null;
-            let responderDetails = null;
-
-            // Fetch related details based on user_type
-            if (profileData?.user_type === 'hospital') {
-              const { data } = await supabase
-                .from('hospital_profiles')
+            try {
+              // Fetch user profile
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
                 .select('*')
                 .eq('id', session.user.id)
                 .maybeSingle();
-              hospitalDetails = data;
-            }
 
-            if (profileData?.user_type === 'responder') {
-              const { data } = await supabase
-                .from('responder_details')
-                .select('*')
-                .eq('id', session.user.id)
-                .maybeSingle();
-              responderDetails = data;
-            }
+              if (profileError || !profileData) {
+                if (isMounted) {
+                  setProfile(null);
+                  setLoading(false);
+                }
+                return;
+              }
 
-            setProfile({
-              ...profileData,
-              hospital_details: hospitalDetails,
-              responder_details: responderDetails,
-            });
-            setLoading(false);
+              let hospitalDetails = null;
+              let responderDetails = null;
+
+              // Fetch related details based on user_type
+              if (profileData?.user_type === 'hospital') {
+                const { data } = await supabase
+                  .from('hospital_profiles')
+                  .select('*')
+                  .eq('id', session.user.id)
+                  .maybeSingle();
+                hospitalDetails = data;
+              }
+
+              if (profileData?.user_type === 'responder') {
+                const { data } = await supabase
+                  .from('responder_details')
+                  .select('*')
+                  .eq('id', session.user.id)
+                  .maybeSingle();
+                responderDetails = data;
+              }
+
+              if (isMounted) {
+                setProfile({
+                  ...profileData,
+                  hospital_details: hospitalDetails,
+                  responder_details: responderDetails,
+                });
+                setLoading(false);
+              }
+            } catch (error) {
+              console.error('Error fetching profile:', error);
+              if (isMounted) {
+                setProfile(null);
+                setLoading(false);
+              }
+            }
           };
 
           fetchProfile();
         } else {
-          setProfile(null);
-          setLoading(false);
+          if (isMounted) {
+            setProfile(null);
+            setLoading(false);
+          }
         }
       }
     );
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      if (isMounted) {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (!session?.user) {
+          setLoading(false);
+        }
+      }
     });
 
-    return () => subscription.unsubscribe();
+    // Safety timeout to prevent infinite loading
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) {
+        setLoading(false);
+      }
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, userData: any) => {

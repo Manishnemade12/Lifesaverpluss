@@ -17,7 +17,15 @@ export const useResponderData = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!user || !profile?.responder_details) return;
+    if (!user || !profile) {
+      setLoading(false);
+      return;
+    }
+
+    if (!profile?.responder_details) {
+      setLoading(false);
+      return;
+    }
 
     const fetchResponderData = async () => {
       // Get responder duty status
@@ -69,6 +77,13 @@ export const useResponderData = () => {
     };
 
     fetchResponderData();
+
+    // Set a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 3000);
+
+    return () => clearTimeout(timeout);
   }, [user, profile]);
 
   const updateDutyStatus = async (newStatus: boolean) => {
