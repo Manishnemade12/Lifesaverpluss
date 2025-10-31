@@ -36,7 +36,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           const fetchProfile = async () => {
             try {
-              // Fetch user profile
+              // First check if user is a hospital (hospitals don't use profiles table)
+              const { data: hospitalData } = await supabase
+                .from('hospital_profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .maybeSingle();
+
+              if (hospitalData) {
+                // This is a hospital user - skip profiles table entirely
+                if (isMounted) {
+                  setProfile({
+                    id: session.user.id,
+                    user_type: 'hospital',
+                    email: session.user.email,
+                    hospital_details: hospitalData,
+                  });
+                  setLoading(false);
+                }
+                return;
+              }
+
+              // Not a hospital, fetch from profiles table
               const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
@@ -51,38 +72,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 return;
               }
 
-              let hospitalDetails = null;
               let responderDetails = null;
 
-              // Fetch hospital details - hospitals don't have profiles table entry
-              const { data: hospitalData } = await supabase
-                .from('hospital_profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .maybeSingle();
-
-              if (hospitalData) {
-                hospitalDetails = hospitalData;
-                // For hospitals, create a minimal profile object
-                if (!profileData) {
-                  if (isMounted) {
-                    setProfile({
-                      id: session.user.id,
-                      user_type: 'hospital',
-                      email: session.user.email,
-                      hospital_details: hospitalDetails,
-                    });
-                    setLoading(false);
-                  }
-                  return;
-                }
-              }
-
-              // Fetch related details based on user_type
-              if (profileData?.user_type === 'hospital') {
-                hospitalDetails = hospitalData;
-              }
-
+              // Fetch responder details if user is a responder
               if (profileData?.user_type === 'responder') {
                 const { data } = await supabase
                   .from('responder_details')
@@ -95,7 +87,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               if (isMounted) {
                 setProfile({
                   ...profileData,
-                  hospital_details: hospitalDetails,
                   responder_details: responderDetails,
                 });
                 setLoading(false);
