@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import UserProfile from "@/components/UserProfile";
 import DummyLogin from "@/components/r/dummylogin";
+import InstallButton from "@/components/InstallButton";
 const Index = () => {
     const [showProfile, setShowProfile] = useState(false);
   return (
@@ -18,7 +19,7 @@ const Index = () => {
               <Shield className="h-8 w-8 text-red-600" />
               <span className="text-2xl font-bold text-gray-900">EmergencyConnect</span>
             </div>
-            <div className="flex space-x-4 sm:flex hidden ">
+            <div className="flex space-x-4 items-center">
               <Link to="/auth/user">
                 <Button variant="outline">User Login</Button>
               </Link>
@@ -28,6 +29,7 @@ const Index = () => {
               <Link to="/auth/hospital">
                 <Button className="bg-blue-600 hover:bg-blue-700 ">Hospital Login</Button>
               </Link>
+              <InstallButton />
             </div>
           </div>
         </div>
@@ -62,6 +64,7 @@ const Index = () => {
                 Hospital Portal
               </Button>
             </Link>
+            <InstallButton />
           </div>
         </div>
       </section>
