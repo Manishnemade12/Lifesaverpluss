@@ -89,7 +89,7 @@ const ProfileModal = ({ open, onClose, profile, onProfileUpdate }: any) => {
   );
 };
 
-// Stats Cards Component
+// Stats Cards Component - Enhanced Professional Design
 const HospitalStatsCards = ({ sosRequests, historyRequests }: any) => {
   const activeCount = sosRequests.filter((r: any) => r.status === 'active' || r.status === 'pending').length;
   const acknowledgedCount = sosRequests.filter((r: any) => r.status === 'acknowledged').length;
@@ -102,54 +102,73 @@ const HospitalStatsCards = ({ sosRequests, historyRequests }: any) => {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <Card className="border-l-4 border-l-red-500 hover:shadow-md transition-shadow">
-        <CardContent className="p-5">
+      {/* Active Emergencies Card */}
+      <Card className="border-l-4 border-l-red-500 hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-red-50/30 overflow-hidden group">
+        <CardContent className="p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="text-3xl font-bold text-red-600">{activeCount}</div>
-              <div className="text-sm text-gray-600 mt-1">Active Emergencies</div>
+            <div className="flex-1">
+              <div className="text-4xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent mb-1">
+                {activeCount}
+              </div>
+              <div className="text-sm font-semibold text-gray-700">Active Emergencies</div>
+              <div className="text-xs text-gray-500 mt-1">Requires immediate attention</div>
             </div>
-            <div className="p-3 bg-red-50 rounded-full">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
+            <div className="p-4 bg-gradient-to-br from-red-100 to-red-200 rounded-xl shadow-md group-hover:scale-110 transition-transform duration-300">
+              <AlertTriangle className="h-7 w-7 text-red-600" />
             </div>
           </div>
         </CardContent>
       </Card>
-      <Card className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
-        <CardContent className="p-5">
+
+      {/* Acknowledged Card */}
+      <Card className="border-l-4 border-l-blue-500 hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-blue-50/30 overflow-hidden group">
+        <CardContent className="p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="text-3xl font-bold text-blue-600">{acknowledgedCount}</div>
-              <div className="text-sm text-gray-600 mt-1">Acknowledged</div>
+            <div className="flex-1">
+              <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mb-1">
+                {acknowledgedCount}
+              </div>
+              <div className="text-sm font-semibold text-gray-700">Acknowledged</div>
+              <div className="text-xs text-gray-500 mt-1">In progress</div>
             </div>
-            <div className="p-3 bg-blue-50 rounded-full">
-              <Clock className="h-6 w-6 text-blue-600" />
+            <div className="p-4 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl shadow-md group-hover:scale-110 transition-transform duration-300">
+              <Clock className="h-7 w-7 text-blue-600" />
             </div>
           </div>
         </CardContent>
       </Card>
-      <Card className="border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
-        <CardContent className="p-5">
+
+      {/* Resolved Today Card */}
+      <Card className="border-l-4 border-l-green-500 hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-green-50/30 overflow-hidden group">
+        <CardContent className="p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="text-3xl font-bold text-green-600">{resolvedToday}</div>
-              <div className="text-sm text-gray-600 mt-1">Resolved Today</div>
+            <div className="flex-1">
+              <div className="text-4xl font-bold bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent mb-1">
+                {resolvedToday}
+              </div>
+              <div className="text-sm font-semibold text-gray-700">Resolved Today</div>
+              <div className="text-xs text-gray-500 mt-1">Successfully handled</div>
             </div>
-            <div className="p-3 bg-green-50 rounded-full">
-              <History className="h-6 w-6 text-green-600" />
+            <div className="p-4 bg-gradient-to-br from-green-100 to-green-200 rounded-xl shadow-md group-hover:scale-110 transition-transform duration-300">
+              <History className="h-7 w-7 text-green-600" />
             </div>
           </div>
         </CardContent>
       </Card>
-      <Card className="border-l-4 border-l-purple-500 hover:shadow-md transition-shadow">
-        <CardContent className="p-5">
+
+      {/* Total Handled Card */}
+      <Card className="border-l-4 border-l-purple-500 hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-purple-50/30 overflow-hidden group">
+        <CardContent className="p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="text-3xl font-bold text-purple-600">{historyRequests.length}</div>
-              <div className="text-sm text-gray-600 mt-1">Total Handled</div>
+            <div className="flex-1">
+              <div className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent mb-1">
+                {historyRequests.length}
+              </div>
+              <div className="text-sm font-semibold text-gray-700">Total Handled</div>
+              <div className="text-xs text-gray-500 mt-1">All time records</div>
             </div>
-            <div className="p-3 bg-purple-50 rounded-full">
-              <Building2 className="h-6 w-6 text-purple-600" />
+            <div className="p-4 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl shadow-md group-hover:scale-110 transition-transform duration-300">
+              <Building2 className="h-7 w-7 text-purple-600" />
             </div>
           </div>
         </CardContent>
@@ -459,159 +478,219 @@ const HospitalDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Enhanced Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6">
-          {/* Top Row - Brand and User Actions */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50">
+      {/* Professional Header - Matching UserDashboard Style */}
+      <header className="bg-white shadow-md border-b sticky top-0 z-50 backdrop-blur-sm bg-white/95">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
-            {/* Brand Section */}
+            {/* Brand Section - Left Side */}
             <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <Building2 className="h-7 w-7 text-blue-600" />
-                <div className="flex flex-col">
-                  <span className="text-lg sm:text-xl font-bold text-gray-900">Hospital Dashboard</span>
-                  {profile && (
-                    <span className="text-xs sm:text-sm text-gray-500 hidden sm:block">
-                      {profile.first_name} {profile.last_name} • Hospital Staff
-                    </span>
-                  )}
-                </div>
+              <div className="p-2 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg shadow-sm">
+                <Building2 className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                  Hospital Dashboard
+                </span>
+                {profile && (
+                  <span className="text-xs sm:text-sm text-gray-600 hidden sm:flex items-center gap-1 mt-0.5">
+                    <User className="h-3 w-3" />
+                    {profile.first_name} {profile.last_name} • Hospital Staff
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* User Actions */}
-            <div className="flex items-center space-x-3">
+            {/* Action Buttons - Right Side - Professional Layout */}
+            <div className="flex items-center space-x-2 flex-wrap justify-end">
+              {/* Profile Button */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowProfile(true)}
-                className="hidden sm:flex"
+                className="hidden sm:flex items-center gap-2 hover:bg-gray-50 transition-all duration-200"
               >
-                <User className="h-4 w-4 mr-2" />
-                Profile
+                <User className="h-4 w-4" />
+                <span>Profile</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowProfile(true)}
-                className="sm:hidden"
+                className="sm:hidden p-2"
+                title="Profile"
               >
                 <User className="h-4 w-4" />
               </Button>
+
+              {/* Blood Connect Button */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/dashboard/hospital/bloodconnect')}
-                className="bg-red-50 border-red-200 hover:bg-red-100 text-red-700 hidden sm:flex"
+                className="bg-gradient-to-r from-red-50 to-pink-50 border-red-200 hover:from-red-100 hover:to-pink-100 text-red-700 hover:text-red-800 hidden sm:flex items-center gap-2 transition-all duration-200 shadow-sm"
               >
-                <Heart className="h-4 w-4 mr-2" />
-                Blood Connect
+                <Heart className="h-4 w-4" />
+                <span>Blood Connect</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/dashboard/hospital/bloodconnect')}
-                className="bg-red-50 border-red-200 hover:bg-red-100 text-red-700 sm:hidden"
+                className="bg-gradient-to-r from-red-50 to-pink-50 border-red-200 hover:from-red-100 hover:to-pink-100 text-red-700 sm:hidden p-2"
+                title="Blood Connect"
               >
                 <Heart className="h-4 w-4" />
               </Button>
+
+              {/* Message/Chat Button - Properly Positioned */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/dashboard/hospital/bloodconnect/chat')}
-                className="bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700 hidden sm:flex"
-              >
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Chat
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/dashboard/hospital/bloodconnect/chat')}
-                className="bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700 sm:hidden"
+                className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 hover:from-blue-100 hover:to-cyan-100 text-blue-700 hover:text-blue-800 hidden sm:flex items-center gap-2 transition-all duration-200 shadow-sm relative"
               >
                 <MessageCircle className="h-4 w-4" />
+                <span>Chat</span>
+                {/* Optional: Notification Badge */}
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-blue-500 rounded-full animate-pulse"></span>
               </Button>
-              <Button variant="outline" size="sm" onClick={signOut}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/dashboard/hospital/bloodconnect/chat')}
+                className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 hover:from-blue-100 hover:to-cyan-100 text-blue-700 sm:hidden p-2 relative"
+                title="Chat"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-blue-500 rounded-full animate-pulse"></span>
+              </Button>
+
+              {/* Logout Button */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={signOut}
+                className="hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all duration-200"
+              >
                 <span className="hidden sm:inline">Logout</span>
                 <span className="sm:hidden">Exit</span>
               </Button>
             </div>
           </div>
 
-          <Separator className="my-2" />
-
-          {/* Status Row */}
-          <div className="pb-4">
+          {/* Status Bar - Enhanced Design */}
+          <div className="pb-4 border-t border-gray-100 pt-3">
             <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2">
-              <Badge variant="default" className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Badge 
+                variant="default" 
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-sm px-3 py-1"
+              >
+                <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
                 HOSPITAL ACTIVE
               </Badge>
               
-              <Badge variant="outline" className="text-green-600 border-green-300">
+              <Badge 
+                variant="outline" 
+                className="text-green-700 border-green-300 bg-green-50/50 hover:bg-green-50 px-3 py-1"
+              >
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
                 <span className="hidden sm:inline">System Online</span>
                 <span className="sm:hidden">Online</span>
               </Badge>
               
-              <Badge variant="outline" className="text-blue-600 border-blue-300">
-                <span className="hidden sm:inline">{sosRequests.filter(r => r.status === 'active' || r.status === 'pending').length} Active</span>
-                <span className="sm:hidden">{sosRequests.filter(r => r.status === 'active' || r.status === 'pending').length}</span>
+              <Badge 
+                variant="outline" 
+                className="text-blue-700 border-blue-300 bg-blue-50/50 hover:bg-blue-50 px-3 py-1"
+              >
+                <AlertTriangle className="h-3 w-3 mr-1.5" />
+                <span className="hidden sm:inline">{sosRequests.filter(r => r.status === 'active' || r.status === 'pending').length} Active Emergencies</span>
+                <span className="sm:hidden">{sosRequests.filter(r => r.status === 'active' || r.status === 'pending').length} Active</span>
               </Badge>
-              <Badge variant="outline" className="text-blue-600 border-blue-300">
+              
+              <Badge 
+                variant="outline" 
+                className="text-amber-700 border-amber-300 bg-amber-50/50 hover:bg-amber-50 px-3 py-1"
+              >
+                <Clock className="h-3 w-3 mr-1.5" />
                 <span className="hidden sm:inline">{sosRequests.filter(r => r.status === 'acknowledged').length} Acknowledged</span>
-                <span className="sm:hidden">{sosRequests.filter(r => r.status === 'acknowledged').length}</span>
+                <span className="sm:hidden">{sosRequests.filter(r => r.status === 'acknowledged').length} Ack</span>
               </Badge>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      {/* Main Content Area */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <Tabs defaultValue="emergency" className="space-y-6 w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto">
-            <TabsTrigger value="emergency" className="text-xs sm:text-sm px-2 py-3">
-              <AlertTriangle className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Emergency Requests</span>
-              <span className="sm:hidden">Emergency</span>
-            </TabsTrigger>
-            <TabsTrigger value="map" className="text-xs sm:text-sm px-2 py-3">
-              <MapPin className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Map View</span>
-              <span className="sm:hidden">Map</span>
-            </TabsTrigger>
-            <TabsTrigger value="history" className="text-xs sm:text-sm px-2 py-3">
-              <History className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Response History</span>
-              <span className="sm:hidden">History</span>
-            </TabsTrigger>
-          </TabsList>
+          {/* Enhanced Tabs Navigation */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-1">
+            <TabsList className="grid w-full grid-cols-3 h-auto bg-transparent gap-1">
+              <TabsTrigger 
+                value="emergency" 
+                className="text-xs sm:text-sm px-3 sm:px-4 py-2.5 sm:py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-red-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg"
+              >
+                <AlertTriangle className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Emergency Requests</span>
+                <span className="sm:hidden">Emergency</span>
+                {sosRequests.length > 0 && (
+                  <Badge className="ml-2 bg-red-600 text-white text-[10px] px-1.5 py-0">
+                    {sosRequests.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="map" 
+                className="text-xs sm:text-sm px-3 sm:px-4 py-2.5 sm:py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg"
+              >
+                <MapPin className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Map View</span>
+                <span className="sm:hidden">Map</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="history" 
+                className="text-xs sm:text-sm px-3 sm:px-4 py-2.5 sm:py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg"
+              >
+                <History className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Response History</span>
+                <span className="sm:hidden">History</span>
+                {historyRequests.length > 0 && (
+                  <Badge className="ml-2 bg-green-600 text-white text-[10px] px-1.5 py-0">
+                    {historyRequests.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="emergency" className="space-y-6">
+          <TabsContent value="emergency" className="space-y-6 mt-6">
+            {/* Stats Cards - Enhanced */}
             <HospitalStatsCards sosRequests={sosRequests} historyRequests={historyRequests} />
             
-            {/* AI Priority Suggestions */}
-            <AIPrioritySuggestor sosRequests={sosRequests} />
+            {/* AI Priority Suggestions - Enhanced */}
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-100 shadow-sm">
+              <AIPrioritySuggestor sosRequests={sosRequests} />
+            </div>
 
             {/* Enhanced Emergency Requests Section */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4">
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader className="pb-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-t-lg border-b border-red-100">
                 <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                   <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-red-50 rounded-lg">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                    <div className="p-2.5 bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-md">
+                      <AlertTriangle className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg sm:text-xl text-gray-900">Emergency Requests</CardTitle>
-                      <p className="text-sm text-gray-500 mt-1">Active SOS requests assigned to your hospital</p>
+                      <CardTitle className="text-xl sm:text-2xl font-bold text-gray-900">Emergency Requests</CardTitle>
+                      <p className="text-sm text-gray-600 mt-1 font-medium">Active SOS requests assigned to your hospital</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300 font-semibold px-3 py-1">
                       {sosRequests.length} Active
                     </Badge>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 font-semibold px-3 py-1">
                       <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
                       Live
                     </Badge>
@@ -619,36 +698,36 @@ const HospitalDashboard: React.FC = () => {
                 </div>
               </CardHeader>
               
-              <CardContent className="px-4 sm:px-6">
+              <CardContent className="px-4 sm:px-6 py-6">
                 <div className="space-y-4">
                   {sosRequests.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <AlertTriangle className="h-8 w-8 text-gray-400" />
+                    <div className="text-center py-16">
+                      <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                        <AlertTriangle className="h-10 w-10 text-green-500" />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">All Clear</h3>
-                      <p className="text-gray-500 text-sm max-w-sm mx-auto">
-                        No emergency requests assigned to your hospital at the moment.
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">All Clear</h3>
+                      <p className="text-gray-600 text-sm max-w-sm mx-auto">
+                        No emergency requests assigned to your hospital at the moment. Great job!
                       </p>
                     </div>
                   ) : (
                     sosRequests.map((request) => (
                       <Card 
                         key={request.id} 
-                        className={`border-l-4 hover:shadow-lg transition-all duration-200 bg-white ${
-                          request.status === 'active' ? 'border-l-red-500' :
-                          request.status === 'pending' ? 'border-l-yellow-500' :
-                          request.status === 'acknowledged' ? 'border-l-blue-500' :
+                        className={`border-l-4 hover:shadow-xl transition-all duration-300 bg-white rounded-lg overflow-hidden ${
+                          request.status === 'active' ? 'border-l-red-500 shadow-red-50' :
+                          request.status === 'pending' ? 'border-l-yellow-500 shadow-yellow-50' :
+                          request.status === 'acknowledged' ? 'border-l-blue-500 shadow-blue-50' :
                           'border-l-gray-500'
                         }`}
                       >
-                        <CardContent className="p-4 sm:p-6">
+                        <CardContent className="p-5 sm:p-6 bg-gradient-to-br from-white to-gray-50/50">
                           <div className="flex flex-col space-y-4">
                             <div className="flex flex-col space-y-4 lg:flex-row lg:items-start lg:justify-between lg:space-y-0">
                               {/* Request Information */}
                               <div className="flex items-start space-x-4 flex-1 min-w-0">
-                              <div className="flex-shrink-0 p-2 bg-red-50 rounded-lg">
-                                <User className="h-4 w-4 text-red-600" />
+                              <div className="flex-shrink-0 p-2.5 bg-gradient-to-br from-red-100 to-red-200 rounded-lg shadow-sm">
+                                <User className="h-5 w-5 text-red-600" />
                               </div>
                               
                               <div className="flex-1 min-w-0">
@@ -727,14 +806,15 @@ const HospitalDashboard: React.FC = () => {
                               </div>
                             </div>
 
-                              {/* Action Buttons */}
-                              <div className="flex flex-col space-y-2 lg:w-40 lg:flex-shrink-0">
+                              {/* Action Buttons - Enhanced */}
+                              <div className="flex flex-col space-y-2 lg:w-44 lg:flex-shrink-0">
                               {request.status === 'active' || request.status === 'pending' ? (
                                 <Button
                                   size="sm"
                                   onClick={() => handleStatusUpdate(request.id, 'acknowledged')}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white w-full shadow-md hover:shadow-lg transition-all duration-200 font-semibold"
                                 >
+                                  <Clock className="h-4 w-4 mr-2" />
                                   Acknowledge
                                 </Button>
                               ) : null}
@@ -742,8 +822,9 @@ const HospitalDashboard: React.FC = () => {
                                 <Button
                                   size="sm"
                                   onClick={() => handleStatusUpdate(request.id, 'resolved')}
-                                  className="bg-green-600 hover:bg-green-700 text-white w-full"
+                                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white w-full shadow-md hover:shadow-lg transition-all duration-200 font-semibold"
                                 >
+                                  <History className="h-4 w-4 mr-2" />
                                   Resolve
                                 </Button>
                               )}
@@ -752,7 +833,7 @@ const HospitalDashboard: React.FC = () => {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleStatusUpdate(request.id, 'dismissed')}
-                                  className="w-full border-gray-300 hover:bg-gray-50"
+                                  className="w-full border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
                                 >
                                   Dismiss
                                 </Button>
@@ -782,26 +863,26 @@ const HospitalDashboard: React.FC = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="map" className="space-y-6">
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4">
+          <TabsContent value="map" className="space-y-6 mt-6">
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader className="pb-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg border-b border-blue-100">
                 <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                   <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                      <MapPin className="h-5 w-5 text-blue-600" />
+                    <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-md">
+                      <MapPin className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg sm:text-xl text-gray-900">Emergency Map</CardTitle>
-                      <p className="text-sm text-gray-500 mt-1">Visual overview of all assigned SOS requests</p>
+                      <CardTitle className="text-xl sm:text-2xl font-bold text-gray-900">Emergency Map</CardTitle>
+                      <p className="text-sm text-gray-600 mt-1 font-medium">Visual overview of all assigned SOS requests</p>
                     </div>
                   </div>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 font-semibold px-3 py-1">
                     {sosRequests.length} Assigned
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="px-0 sm:px-6 pb-6">
-                <div className="h-[500px] sm:h-[600px] w-full rounded-lg overflow-hidden border">
+              <CardContent className="px-4 sm:px-6 pb-6 pt-6">
+                <div className="h-[500px] sm:h-[600px] w-full rounded-xl overflow-hidden border-2 border-gray-200 shadow-inner">
                   <HospitalMap 
                     sosRequests={sosRequests.filter(r => 
                       r.status !== 'resolved' && r.status !== 'dismissed'
@@ -813,39 +894,39 @@ const HospitalDashboard: React.FC = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="history" className="space-y-6">
-            <Card>
-              <CardHeader>
+          <TabsContent value="history" className="space-y-6 mt-6">
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader className="pb-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-lg border-b border-green-100">
                 <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                   <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-green-50 rounded-lg">
-                      <History className="h-5 w-5 text-green-600" />
+                    <div className="p-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-md">
+                      <History className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg sm:text-xl text-gray-900">Response History</CardTitle>
-                      <p className="text-sm text-gray-500 mt-1">Previously handled emergency requests</p>
+                      <CardTitle className="text-xl sm:text-2xl font-bold text-gray-900">Response History</CardTitle>
+                      <p className="text-sm text-gray-600 mt-1 font-medium">Previously handled emergency requests</p>
                     </div>
                   </div>
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 font-semibold px-3 py-1">
                     {historyRequests.length} Completed
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="px-4 sm:px-6">
+              <CardContent className="px-4 sm:px-6 py-6">
                 <div className="space-y-4">
                   {historyRequests.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <History className="h-8 w-8 text-gray-400" />
+                    <div className="text-center py-16">
+                      <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                        <History className="h-10 w-10 text-gray-400" />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No History Yet</h3>
-                      <p className="text-gray-500 text-sm max-w-sm mx-auto">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">No History Yet</h3>
+                      <p className="text-gray-600 text-sm max-w-sm mx-auto">
                         Resolved and dismissed requests will appear here.
                       </p>
                     </div>
                   ) : (
                     historyRequests.map((request) => (
-                      <div key={request.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                      <div key={request.id} className="border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-white to-gray-50/50">
                         <div className="flex flex-col space-y-3">
                           <div className="flex flex-col space-y-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
                             <div className="flex items-start space-x-3 flex-1 min-w-0">

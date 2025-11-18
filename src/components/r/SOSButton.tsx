@@ -429,30 +429,103 @@ const SOSButton = () => {
     setIsLoading(true);
 
     try {
-      // Step 1: Fetch all hospitals
+      // Step 1: Fetch all hospitals and calculate distances
       const { data: hospitals, error: hospitalError } = await supabase
         .from('hospital_profiles')
-        .select('id, latitude, longitude, hospital_name');
+        .select('id, latitude, longitude, hospital_name')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null);
 
-      if (hospitalError || !hospitals || hospitals.length === 0) {
-        throw new Error('No hospitals found.');
+      if (hospitalError) {
+        throw new Error('Failed to fetch hospitals.');
       }
 
-      // Step 2: Find nearest hospital
-      const distances = hospitals.map((hospital) => ({
-        ...hospital,
-        distance: haversineDistance(
-          userLocation.latitude,
-          userLocation.longitude,
-          hospital.latitude,
-          hospital.longitude
-        ),
-      }));
+      let assignedHospitalId: string | null = null;
+      let assignedResponderId: string | null = null;
 
-      const sorted = distances.sort((a, b) => a.distance - b.distance);
-      const nearestHospital = sorted[0];
+      // Step 2: Find hospitals within 5km radius
+      if (hospitals && hospitals.length > 0) {
+        const hospitalsWithDistance = hospitals.map((hospital) => ({
+          ...hospital,
+          distance: haversineDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            Number(hospital.latitude),
+            Number(hospital.longitude)
+          ),
+        }));
 
-      // Step 3: Enhance description with AI if enabled
+        // Filter hospitals within 5km radius
+        const nearbyHospitals = hospitalsWithDistance.filter((h) => h.distance <= 5);
+        
+        if (nearbyHospitals.length > 0) {
+          // Sort by distance and assign to nearest hospital
+          const sorted = nearbyHospitals.sort((a, b) => a.distance - b.distance);
+          assignedHospitalId = sorted[0].id;
+        }
+      }
+
+      // Step 3: If NO hospital within 5km, DIRECTLY assign to nearest on-duty responder
+      if (!assignedHospitalId) {
+        // Fetch all verified responders who are ON DUTY (is_on_duty = true)
+        // Direct query without profiles join to avoid RLS issues
+        const { data: responders, error: responderError } = await supabase
+          .from('responder_details')
+          .select(`
+            id,
+            current_location,
+            is_verified,
+            is_on_duty
+          `)
+          .eq('is_verified', true)
+          .eq('is_on_duty', true);
+
+        if (responderError) {
+          console.error('❌ Error fetching responders:', responderError);
+          console.error('Error details:', JSON.stringify(responderError, null, 2));
+        }
+
+        console.log(`🔍 Found ${responders?.length || 0} responders with is_verified=true AND is_on_duty=true`);
+
+        if (responders && responders.length > 0) {
+          // Find responder with location closest to user (no distance limit)
+          const respondersWithDistance = responders
+            .map((responder) => {
+              const location = responder.current_location as { lat?: number; lng?: number } | null;
+              if (!location || !location.lat || !location.lng) {
+                console.log(`⚠️ Responder ${responder.id} has no valid location`);
+                return null;
+              }
+              
+              const distance = haversineDistance(
+                userLocation.latitude,
+                userLocation.longitude,
+                location.lat,
+                location.lng
+              );
+              
+              return {
+                ...responder,
+                distance,
+              };
+            })
+            .filter((r): r is NonNullable<typeof r> => r !== null);
+
+          if (respondersWithDistance.length > 0) {
+            // Sort by distance and assign to nearest responder
+            const sorted = respondersWithDistance.sort((a, b) => a.distance - b.distance);
+            assignedResponderId = sorted[0].id;
+            console.log(`✅ Responder assigned: ID ${sorted[0].id} (${sorted[0].distance.toFixed(2)} km away)`);
+          } else {
+            console.log('⚠️ Responders found but none have valid location data');
+          }
+        } else {
+          console.log('⚠️ No verified responders with is_on_duty = true found');
+          console.log('💡 Check: responder_details table me is_verified=true AND is_on_duty=true wale records hain?');
+        }
+      }
+
+      // Step 4: Enhance description with AI if enabled
       let enhancedDescription = 'Emergency SOS request';
       if (aiEnhancementEnabled) {
         try {
@@ -463,8 +536,8 @@ const SOSButton = () => {
         }
       }
 
-      // Step 4: Insert SOS request
-      const { error: insertError } = await supabase.from('sos_requests').insert({
+      // Step 5: Insert SOS request
+      const sosData: any = {
         user_id: user.id,
         user_name: `${user.user_metadata?.first_name || 'User'} ${user.user_metadata?.last_name || ''}`.trim(),
         user_phone: user.user_metadata?.phone || 'Not provided',
@@ -474,17 +547,48 @@ const SOSButton = () => {
         description: enhancedDescription,
         user_address: 'Current Location',
         status: 'pending',
-        assigned_hospital_id: nearestHospital.id,
-      });
+      };
+
+      if (assignedHospitalId) {
+        sosData.assigned_hospital_id = assignedHospitalId;
+      } else if (assignedResponderId) {
+        sosData.assigned_responder_id = assignedResponderId;
+      }
+
+      const { error: insertError } = await supabase.from('sos_requests').insert(sosData);
 
       if (insertError) throw insertError;
 
-      toast({
-        title: 'SOS Request Sent',
-        description: `Emergency request sent to ${nearestHospital.hospital_name} (${nearestHospital.distance.toFixed(
-          2
-        )} km away).`,
-      });
+      // Step 6: Show success message
+      if (assignedHospitalId) {
+        const hospital = hospitals?.find((h) => h.id === assignedHospitalId);
+        const distance = hospitals
+          ?.map((h) => ({
+            ...h,
+            distance: haversineDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              Number(h.latitude),
+              Number(h.longitude)
+            ),
+          }))
+          .find((h) => h.id === assignedHospitalId)?.distance;
+
+        toast({
+          title: 'SOS Request Sent',
+          description: `Emergency request sent to ${hospital?.hospital_name || 'Hospital'} (${distance?.toFixed(2) || '0'} km away).`,
+        });
+      } else if (assignedResponderId) {
+        toast({
+          title: 'SOS Request Sent',
+          description: 'Emergency request assigned to nearby responder. Help is on the way!',
+        });
+      } else {
+        toast({
+          title: 'SOS Request Sent',
+          description: 'Emergency request has been logged. Emergency services will be notified.',
+        });
+      }
     } catch (error) {
       console.error('Error sending SOS request:', error);
       toast({
