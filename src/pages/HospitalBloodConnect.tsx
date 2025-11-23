@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Building2, Droplet, Plus, Package, AlertTriangle, CheckCircle2, Clock, MessageCircle, Users, Inbox, X, Heart, TrendingUp } from 'lucide-react';
+import { Building2, Droplet, Plus, Package, AlertTriangle, CheckCircle2, Clock, MessageCircle, Users, Inbox, X, Heart, TrendingUp, User, Phone, Mail, Eye } from 'lucide-react';
 import BloodRequestList from '@/components/BloodRequestList';
 import BloodDonorList from '@/components/BloodDonorList';
 import HospitalRequestsManager from '@/components/HospitalRequestsManager';
@@ -34,7 +35,16 @@ interface HospitalBloodRequest {
   urgency_level: string;
   status: string;
   accepted_by: string | null;
+  accepted_at: string | null;
+  user_response: string | null;
   created_at: string;
+  accepted_user?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    email: string | null;
+  };
 }
 
 const HospitalBloodConnect = () => {
@@ -44,6 +54,8 @@ const HospitalBloodConnect = () => {
   const [inventory, setInventory] = useState<BloodInventory[]>([]);
   const [requests, setRequests] = useState<HospitalBloodRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedAcceptedRequest, setSelectedAcceptedRequest] = useState<HospitalBloodRequest | null>(null);
+  const [showUserDetailsDialog, setShowUserDetailsDialog] = useState(false);
   const [formData, setFormData] = useState({
     blood_group: '',
     units_available: 0,
@@ -56,8 +68,11 @@ const HospitalBloodConnect = () => {
   });
 
   useEffect(() => {
-    fetchInventory();
-    fetchHospitalRequests();
+    if (user) {
+      fetchInventory();
+      fetchHospitalRequests();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchInventory = async () => {
@@ -65,19 +80,20 @@ const HospitalBloodConnect = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('hospital_blood_inventory')
+      const { data, error } = await (supabase
+        .from('hospital_blood_inventory' as never)
         .select('*')
         .eq('hospital_id', user.id)
-        .order('blood_group', { ascending: true });
+        .order('blood_group', { ascending: true }) as unknown as { data: BloodInventory[] | null; error: { message: string } | null });
 
       if (error) throw error;
       setInventory(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching inventory:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch inventory';
       toast({
         title: 'Error',
-        description: 'Failed to fetch inventory',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -89,15 +105,51 @@ const HospitalBloodConnect = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('hospital_blood_requests')
+      const { data, error } = await (supabase
+        .from('hospital_blood_requests' as never)
         .select('*')
         .eq('hospital_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as unknown as { 
+          data: Array<Record<string, unknown>> | null; 
+          error: { message: string } | null 
+        });
 
       if (error) throw error;
-      setRequests(data || []);
-    } catch (error: any) {
+      
+      // Fetch user profiles for accepted requests
+      const acceptedUserIds = (data || [])
+        .filter((req: Record<string, unknown>) => req.accepted_by)
+        .map((req: Record<string, unknown>) => req.accepted_by as string);
+      
+      const userProfilesMap = new Map<string, { id: string; first_name: string | null; last_name: string | null; phone: string | null; email: string | null }>();
+      
+      if (acceptedUserIds.length > 0) {
+        const { data: profilesData } = await (supabase
+          .from('profiles' as never)
+          .select('id, first_name, last_name, phone, email')
+          .in('id', acceptedUserIds) as unknown as { 
+            data: Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null; email: string | null }> | null;
+          });
+        
+        if (profilesData) {
+          profilesData.forEach(profile => {
+            userProfilesMap.set(profile.id, profile);
+          });
+        }
+      }
+      
+      const requestsWithUser = (data || []).map((req: Record<string, unknown>) => {
+        const acceptedById = req.accepted_by as string | null;
+        const acceptedUser = acceptedById ? userProfilesMap.get(acceptedById) : undefined;
+        
+        return {
+          ...req,
+          accepted_user: acceptedUser
+        };
+      }) as HospitalBloodRequest[];
+      
+      setRequests(requestsWithUser);
+    } catch (error: unknown) {
       console.error('Error fetching requests:', error);
     }
   };
@@ -107,16 +159,16 @@ const HospitalBloodConnect = () => {
     if (!user || !formData.blood_group || formData.units_available < 0) return;
 
     try {
-      const { error } = await supabase
-        .from('hospital_blood_inventory')
+      const { error } = await (supabase
+        .from('hospital_blood_inventory' as never)
         .upsert({
           hospital_id: user.id,
           blood_group: formData.blood_group,
           units_available: formData.units_available,
           units_reserved: formData.units_reserved || 0,
-        }, {
+        } as never, {
           onConflict: 'hospital_id,blood_group'
-        });
+        }) as unknown as { error: { message: string } | null });
 
       if (error) throw error;
 
@@ -127,11 +179,12 @@ const HospitalBloodConnect = () => {
 
       setFormData({ blood_group: '', units_available: 0, units_reserved: 0 });
       fetchInventory();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating inventory:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update inventory';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update inventory',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -142,15 +195,15 @@ const HospitalBloodConnect = () => {
     if (!user || !requestFormData.blood_group || requestFormData.units_required < 1) return;
 
     try {
-      const { error } = await supabase
-        .from('hospital_blood_requests')
+      const { error } = await (supabase
+        .from('hospital_blood_requests' as never)
         .insert({
           hospital_id: user.id,
           blood_group: requestFormData.blood_group,
           units_required: requestFormData.units_required,
           urgency_level: requestFormData.urgency_level,
           status: 'active',
-        });
+        } as never) as unknown as { error: { message: string } | null });
 
       if (error) throw error;
 
@@ -161,11 +214,12 @@ const HospitalBloodConnect = () => {
 
       setRequestFormData({ blood_group: '', units_required: 1, urgency_level: 'normal' });
       fetchHospitalRequests();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating request:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create request';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create request',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -175,15 +229,15 @@ const HospitalBloodConnect = () => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('hospital_blood_requests')
+      const { error } = await (supabase
+        .from('hospital_blood_requests' as never)
         .update({
           status: 'cancelled',
           cancelled_at: new Date().toISOString(),
           cancelled_by: user.id,
-        })
+        } as never)
         .eq('id', requestId)
-        .eq('hospital_id', user.id);
+        .eq('hospital_id', user.id) as unknown as { error: { message: string } | null });
 
       if (error) throw error;
 
@@ -193,11 +247,43 @@ const HospitalBloodConnect = () => {
       });
 
       fetchHospitalRequests();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cancelling request:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to cancel request';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to cancel request',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const completeHospitalRequest = async (requestId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await (supabase
+        .from('hospital_blood_requests' as never)
+        .update({
+          status: 'fulfilled',
+        } as never)
+        .eq('id', requestId)
+        .eq('hospital_id', user.id) as unknown as { error: { message: string } | null });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Request marked as completed',
+      });
+
+      fetchHospitalRequests();
+    } catch (error: unknown) {
+      console.error('Error completing request:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to complete request';
+      toast({
+        title: 'Error',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -621,9 +707,21 @@ const HospitalBloodConnect = () => {
                                     )}
                                   </p>
                                   {request.accepted_by && (
-                                    <p className="text-sm text-green-600 font-medium flex items-center gap-1">
-                                      <CheckCircle2 className="h-4 w-4" />
-                                      Accepted by a donor
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className="text-sm text-green-600 font-medium flex items-center gap-1">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Accepted by a donor
+                                      </p>
+                                      {request.accepted_at && (
+                                        <span className="text-xs text-muted-foreground">
+                                          on {new Date(request.accepted_at).toLocaleString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {request.user_response && (
+                                    <p className="text-sm text-blue-600 italic">
+                                      "{request.user_response}"
                                     </p>
                                   )}
                                   <p className="text-xs text-muted-foreground">
@@ -631,17 +729,58 @@ const HospitalBloodConnect = () => {
                                   </p>
                                 </div>
                               </div>
-                              {request.status === 'active' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 border-red-300 hover:bg-red-50 ml-2"
-                                  onClick={() => cancelHospitalRequest(request.id)}
-                                >
-                                  <X className="h-4 w-4 mr-1" />
-                                  Cancel
-                                </Button>
-                              )}
+                              <div className="flex gap-2 mt-3 flex-wrap">
+                                {request.status === 'active' && !request.accepted_by && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600 border-red-300 hover:bg-red-50"
+                                    onClick={() => cancelHospitalRequest(request.id)}
+                                  >
+                                    <X className="h-4 w-4 mr-1" />
+                                    Cancel
+                                  </Button>
+                                )}
+                                {request.accepted_by && request.status !== 'fulfilled' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                      onClick={() => {
+                                        setSelectedAcceptedRequest(request);
+                                        setShowUserDetailsDialog(true);
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4 mr-1" />
+                                      View Details
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                                      onClick={() => navigate(`/dashboard/hospital/bloodconnect/chat?hospitalRequestId=${request.id}&userId=${request.accepted_by}`)}
+                                    >
+                                      <MessageCircle className="h-4 w-4 mr-1" />
+                                      Chat
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-green-600 border-green-300 hover:bg-green-50"
+                                      onClick={() => completeHospitalRequest(request.id)}
+                                    >
+                                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                                      Complete
+                                    </Button>
+                                  </>
+                                )}
+                                {request.status === 'fulfilled' && (
+                                  <Badge className="bg-green-600 text-white">
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Completed
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -672,11 +811,15 @@ const HospitalBloodConnect = () => {
             <TabsContent value="user-requests" className="mt-6 space-y-4">
               <Card className="border-2 border-blue-200 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
-                  <CardTitle className="flex items-center gap-2 text-blue-700">
-                    <Inbox className="h-5 w-5" />
-                    User Blood Requests
-                  </CardTitle>
-                  <CardDescription>Review and respond to blood requests from users. Approve or reject requests based on availability.</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-blue-700">
+                        <Inbox className="h-5 w-5" />
+                        User Blood Requests
+                      </CardTitle>
+                      <CardDescription>Review and respond to blood requests from users. Approve or reject requests based on availability.</CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="pt-6">
                   <HospitalRequestsManager />
@@ -702,6 +845,114 @@ const HospitalBloodConnect = () => {
           </Tabs>
         </Card>
       </div>
+
+      {/* User Details Dialog */}
+      <Dialog open={showUserDetailsDialog} onOpenChange={setShowUserDetailsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Donor Details
+            </DialogTitle>
+            <DialogDescription>
+              Information about the donor who accepted your blood request
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAcceptedRequest?.accepted_user ? (
+            <div className="mt-4 space-y-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 pb-4 border-b">
+                      <div className="p-3 bg-blue-100 rounded-full">
+                        <User className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">
+                          {selectedAcceptedRequest.accepted_user.first_name || ''} {selectedAcceptedRequest.accepted_user.last_name || ''}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">Blood Donor</p>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {selectedAcceptedRequest.accepted_user.phone && (
+                        <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                          <Phone className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Phone</p>
+                            <a 
+                              href={`tel:${selectedAcceptedRequest.accepted_user.phone}`}
+                              className="text-sm font-medium hover:text-blue-600"
+                            >
+                              {selectedAcceptedRequest.accepted_user.phone}
+                            </a>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedAcceptedRequest.accepted_user.email && (
+                        <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                          <Mail className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Email</p>
+                            <a 
+                              href={`mailto:${selectedAcceptedRequest.accepted_user.email}`}
+                              className="text-sm font-medium hover:text-blue-600 break-all"
+                            >
+                              {selectedAcceptedRequest.accepted_user.email}
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedAcceptedRequest.user_response && (
+                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <p className="text-sm font-medium text-blue-900 mb-2">Donor's Message:</p>
+                        <p className="text-sm text-blue-800 italic">"{selectedAcceptedRequest.user_response}"</p>
+                      </div>
+                    )}
+
+                    {selectedAcceptedRequest.accepted_at && (
+                      <div className="text-xs text-muted-foreground pt-2 border-t">
+                        Accepted on: {new Date(selectedAcceptedRequest.accepted_at).toLocaleString()}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => {
+                          setShowUserDetailsDialog(false);
+                          navigate(`/dashboard/hospital/bloodconnect/chat?hospitalRequestId=${selectedAcceptedRequest.id}&userId=${selectedAcceptedRequest.accepted_by}`);
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Start Chat
+                      </Button>
+                      {selectedAcceptedRequest.accepted_user.phone && (
+                        <Button
+                          variant="outline"
+                          onClick={() => window.open(`tel:${selectedAcceptedRequest.accepted_user?.phone}`, '_blank')}
+                        >
+                          <Phone className="h-4 w-4 mr-2" />
+                          Call
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="mt-4 text-center py-8">
+              <User className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <p className="text-muted-foreground">Loading donor details...</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

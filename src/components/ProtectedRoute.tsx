@@ -17,11 +17,11 @@ export const ProtectedRoute = ({ children, requiredUserType }: ProtectedRoutePro
       if (!user) {
         // Redirect to appropriate auth page based on required type
         if (requiredUserType === 'responder') {
-          navigate('/auth/responder');
+          navigate('/auth/responder', { replace: true });
         } else if (requiredUserType === 'hospital') {
-          navigate('/auth/hospital');
+          navigate('/auth/hospital', { replace: true });
         } else {
-          navigate('/auth/user');
+          navigate('/auth/user', { replace: true });
         }
         return;
       }
@@ -29,22 +29,22 @@ export const ProtectedRoute = ({ children, requiredUserType }: ProtectedRoutePro
       if (requiredUserType && profile?.user_type !== requiredUserType) {
         // Redirect to appropriate auth page based on required type
         if (requiredUserType === 'responder') {
-          navigate('/auth/responder');
+          navigate('/auth/responder', { replace: true });
         } else if (requiredUserType === 'hospital') {
-          navigate('/auth/hospital');
+          navigate('/auth/hospital', { replace: true });
         } else {
-          navigate('/auth/user');
+          navigate('/auth/user', { replace: true });
         }
         return;
       }
 
       // Redirect to appropriate dashboard if authenticated but on wrong page
       if (profile?.user_type === 'user' && (window.location.pathname === '/dashboard/responder' || window.location.pathname === '/dashboard/hospital')) {
-        navigate('/dashboard/user');
+        navigate('/dashboard/user', { replace: true });
       } else if (profile?.user_type === 'responder' && (window.location.pathname === '/dashboard/user' || window.location.pathname === '/dashboard/hospital')) {
-        navigate('/dashboard/responder');
+        navigate('/dashboard/responder', { replace: true });
       } else if (profile?.user_type === 'hospital' && (window.location.pathname === '/dashboard/user' || window.location.pathname === '/dashboard/responder')) {
-        navigate('/dashboard/hospital');
+        navigate('/dashboard/hospital', { replace: true });
       }
     }
   }, [user, profile, loading, navigate, requiredUserType]);

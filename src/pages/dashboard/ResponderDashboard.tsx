@@ -30,23 +30,36 @@ import AIPredictiveHotspots from "@/components/AIPredictiveHotspots";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-interface SOSRequest {
+interface EmergencyAlert {
   id: string;
   user_id: string;
-  user_name: string;
-  user_phone: string;
-  user_address: string | null;
-  latitude: number;
-  longitude: number;
-  emergency_type: string;
-  description: string | null;
-  assigned_hospital_id: string | null;
-  assigned_responder_id: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-  estimated_arrival: string | null;
-  notes: string | null;
-  status: string;
+  type: 'medical' | 'safety' | 'general';
+  status: 'active' | 'acknowledged' | 'responding' | 'completed';
+  location_lat?: number;
+  location_lng?: number;
+  location_description?: string;
+  description?: string;
+  responder_id?: string;
+  created_at: string;
+  updated_at: string;
+  profiles?: {
+    first_name: string;
+    last_name: string;
+    phone: string;
+  };
+  // Computed fields for UI compatibility
+  user_name?: string;
+  user_phone?: string;
+  user_address?: string;
+  latitude?: number;
+  longitude?: number;
+  emergency_type?: string;
+}
+
+interface ProfileData {
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
 }
 
 const ResponderDashboard = () => {
@@ -65,10 +78,10 @@ const ResponderDashboard = () => {
   } = useResponderLocation();
 
   const [showProfile, setShowProfile] = useState(false);
-  const [sosRequests, setSosRequests] = useState<SOSRequest[]>([]);
-  const [historyRequests, setHistoryRequests] = useState<SOSRequest[]>([]);
+  const [sosRequests, setSosRequests] = useState<EmergencyAlert[]>([]);
+  const [historyRequests, setHistoryRequests] = useState<EmergencyAlert[]>([]);
   const [loading, setLoading] = useState(true);
-  const subscriptionRef = useRef<any>(null);
+  const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // ===== helpers (memoized) =====
   const contactUser = useCallback((phone: string) => {
@@ -76,7 +89,7 @@ const ResponderDashboard = () => {
     window.open(`tel:${phone}`);
   }, []);
 
-  const getAlertTypeColor = useCallback((type: string) => {
+  const getAlertTypeColor = useCallback((type: string): string => {
     switch (type) {
       case "medical":
         return "bg-red-100 text-red-800";
@@ -118,20 +131,22 @@ const ResponderDashboard = () => {
   }, []);
 
   const getDistanceToRequest = useCallback(
-    (request: SOSRequest) => {
-      if (!currentLocation || !request.latitude || !request.longitude) return null;
+    (request: EmergencyAlert) => {
+      const lat = request.latitude ?? request.location_lat;
+      const lng = request.longitude ?? request.location_lng;
+      if (!currentLocation || !lat || !lng) return null;
       const distance = calculateDistance(
         currentLocation.lat,
         currentLocation.lng,
-        Number(request.latitude),
-        Number(request.longitude)
+        Number(lat),
+        Number(lng)
       );
       return distance.toFixed(1) + " km";
     },
     [currentLocation, calculateDistance]
   );
 
-  const handleStatusUpdate = async (id: string, status: string) => {
+  const handleStatusUpdate = async (id: string, status: 'active' | 'acknowledged' | 'responding' | 'completed') => {
     const request = sosRequests.find((req) => req.id === id);
     
     // Optimistic update
@@ -139,10 +154,10 @@ const ResponderDashboard = () => {
       prev.map((req) => (req.id === id ? { ...req, status } : req))
     );
     
-    // Move to history if resolved or dismissed
-    if (status === 'resolved' || status === 'dismissed') {
+    // Move to history if completed
+    if (status === 'completed') {
       if (request) {
-        setHistoryRequests((prev) => [request, ...prev]);
+        setHistoryRequests((prev) => [{ ...request, status }, ...prev]);
       }
       setTimeout(() => {
         setSosRequests((prev) => 
@@ -151,10 +166,15 @@ const ResponderDashboard = () => {
       }, 500);
     }
     
-    const { error } = await supabase
-      .from('sos_requests')
-      .update({ status })
-      .eq('id', id);
+    const updateData: { status: string; responder_id?: string } = { status };
+    if (status === 'acknowledged' || status === 'responding') {
+      updateData.responder_id = profile?.id;
+    }
+    
+    const { error } = await (supabase
+      .from('emergency_alerts' as never)
+      .update(updateData as never)
+      .eq('id', id) as unknown as { error: { message: string } | null });
 
     if (error) {
       // Revert optimistic update on error
@@ -171,8 +191,8 @@ const ResponderDashboard = () => {
     } else {
       const statusMessages: { [key: string]: string } = {
         'acknowledged': 'Request acknowledged. Responding now.',
-        'resolved': 'Request resolved successfully.',
-        'dismissed': 'Request dismissed.',
+        'responding': 'Responding to emergency.',
+        'completed': 'Request completed successfully.',
       };
       toast({
         title: 'Status Updated',
@@ -181,9 +201,9 @@ const ResponderDashboard = () => {
     }
   };
 
-  // Fetch SOS requests assigned to this responder
+  // Fetch emergency alerts assigned to this responder
   useEffect(() => {
-    const fetchSOSRequests = async () => {
+    const fetchEmergencyAlerts = async () => {
       if (!profile?.id || !shouldSubscribeAlerts) {
         setLoading(false);
         return;
@@ -191,24 +211,48 @@ const ResponderDashboard = () => {
 
       setLoading(true);
       try {
-        // Fetch SOS requests assigned to this responder
-        const { data, error } = await supabase
-          .from('sos_requests')
-          .select('*')
-          .eq('assigned_responder_id', profile.id)
-          .order('created_at', { ascending: false });
+        // Fetch emergency alerts assigned to this responder
+        const { data, error } = await (supabase
+          .from('emergency_alerts' as never)
+          .select(`
+            *,
+            profiles:user_id (
+              first_name,
+              last_name,
+              phone
+            )
+          ` as never)
+          .eq('responder_id', profile.id)
+          .order('created_at', { ascending: false }) as unknown as { data: unknown; error: { message: string } | null });
 
         if (error) throw error;
 
         if (data) {
+          // Map data to include computed fields for UI compatibility
+          const mappedData: EmergencyAlert[] = (data as unknown as Array<Record<string, unknown>>).map((alert: Record<string, unknown>) => {
+            const baseAlert = alert as unknown as EmergencyAlert;
+            const profile = alert.profiles as ProfileData | undefined;
+            return {
+              ...baseAlert,
+              user_name: profile
+                ? `${(profile.first_name || '')} ${(profile.last_name || '')}`.trim()
+                : 'Unknown User',
+              user_phone: profile?.phone || '',
+              user_address: (alert.location_description as string) || '',
+              latitude: alert.location_lat as number,
+              longitude: alert.location_lng as number,
+              emergency_type: alert.type as string,
+            };
+          });
+
           // Separate active and history
-          const active = data.filter(r => r.status !== 'resolved' && r.status !== 'dismissed');
-          const history = data.filter(r => r.status === 'resolved' || r.status === 'dismissed');
+          const active = mappedData.filter(r => r.status !== 'completed');
+          const history = mappedData.filter(r => r.status === 'completed');
           setSosRequests(active);
           setHistoryRequests(history);
         }
       } catch (error) {
-        console.error('Error fetching SOS requests:', error);
+        console.error('Error fetching emergency alerts:', error);
         toast({
           title: 'Error',
           description: 'Failed to load emergency requests.',
@@ -219,7 +263,7 @@ const ResponderDashboard = () => {
       }
     };
 
-    fetchSOSRequests();
+    fetchEmergencyAlerts();
 
     // Clean up previous subscription if any
     if (subscriptionRef.current) {
@@ -227,69 +271,96 @@ const ResponderDashboard = () => {
       subscriptionRef.current = null;
     }
 
-    // Real-time subscription for SOS requests
+    // Real-time subscription for emergency alerts
     if (shouldSubscribeAlerts && profile?.id) {
       const channel = supabase
-        .channel('realtime:responder_sos_requests')
+        .channel('realtime:responder_emergency_alerts')
         .on(
           'postgres_changes',
           {
             event: '*',
             schema: 'public',
-            table: 'sos_requests',
-            filter: `assigned_responder_id=eq.${profile.id}`,
+            table: 'emergency_alerts',
+            filter: `responder_id=eq.${profile.id}`,
           },
-          (payload) => {
-            const newRequest = payload.new as SOSRequest;
+          async (payload) => {
+            const newAlert = payload.new as Record<string, unknown>;
             
-            setSosRequests((prev) => {
-              let updated = prev;
-              if (payload.eventType === 'INSERT') {
-                if (newRequest.status !== 'resolved' && newRequest.status !== 'dismissed') {
-                  if (!prev.some((req) => req.id === newRequest.id)) {
-                    updated = [newRequest, ...prev];
+            // Fetch profile data for new/updated alerts
+            if (newAlert?.user_id) {
+              const { data: profileData } = await (supabase
+                .from('profiles' as never)
+                .select('first_name, last_name, phone')
+                .eq('id', newAlert.user_id as string)
+                .single() as unknown as { data: ProfileData | null });
+              
+              const profile = profileData as ProfileData | null;
+              const mappedAlert: EmergencyAlert = {
+                ...(newAlert as unknown as EmergencyAlert),
+                profiles: profile ? {
+                  first_name: profile.first_name || '',
+                  last_name: profile.last_name || '',
+                  phone: profile.phone || '',
+                } : undefined,
+                user_name: profile 
+                  ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+                  : 'Unknown User',
+                user_phone: profile?.phone || '',
+                user_address: (newAlert.location_description as string) || '',
+                latitude: newAlert.location_lat as number,
+                longitude: newAlert.location_lng as number,
+                emergency_type: newAlert.type as string,
+              };
+              
+              setSosRequests((prev) => {
+                let updated = prev;
+                if (payload.eventType === 'INSERT') {
+                  if (mappedAlert.status !== 'completed') {
+                    if (!prev.some((req) => req.id === mappedAlert.id)) {
+                      updated = [mappedAlert, ...prev];
+                    }
                   }
+                } else if (payload.eventType === 'UPDATE') {
+                  const isCompleted = mappedAlert.status === 'completed';
+                  if (isCompleted) {
+                    updated = prev.filter((req) => req.id !== mappedAlert.id);
+                  } else {
+                    updated = prev.map((req) =>
+                      req.id === mappedAlert.id ? mappedAlert : req
+                    );
+                  }
+                } else if (payload.eventType === 'DELETE') {
+                  updated = prev.filter((req) => req.id !== (payload.old as { id: string }).id);
                 }
-              } else if (payload.eventType === 'UPDATE') {
-                const isResolved = newRequest.status === 'resolved' || newRequest.status === 'dismissed';
-                if (isResolved) {
-                  updated = prev.filter((req) => req.id !== newRequest.id);
-                } else {
-                  updated = prev.map((req) =>
-                    req.id === newRequest.id ? newRequest : req
-                  );
-                }
-              } else if (payload.eventType === 'DELETE') {
-                updated = prev.filter((req) => req.id !== payload.old.id);
-              }
-              return updated;
-            });
+                return updated;
+              });
 
-            setHistoryRequests((prev) => {
-              let updated = prev;
-              if (payload.eventType === 'INSERT') {
-                if (newRequest.status === 'resolved' || newRequest.status === 'dismissed') {
-                  if (!prev.some((req) => req.id === newRequest.id)) {
-                    updated = [newRequest, ...prev];
+              setHistoryRequests((prev) => {
+                let updated = prev;
+                if (payload.eventType === 'INSERT') {
+                  if (mappedAlert.status === 'completed') {
+                    if (!prev.some((req) => req.id === mappedAlert.id)) {
+                      updated = [mappedAlert, ...prev];
+                    }
                   }
-                }
-              } else if (payload.eventType === 'UPDATE') {
-                const isResolved = newRequest.status === 'resolved' || newRequest.status === 'dismissed';
-                if (isResolved) {
-                  updated = prev.map((req) =>
-                    req.id === newRequest.id ? newRequest : req
-                  );
-                  if (!prev.some((req) => req.id === newRequest.id)) {
-                    updated = [newRequest, ...prev];
+                } else if (payload.eventType === 'UPDATE') {
+                  const isCompleted = mappedAlert.status === 'completed';
+                  if (isCompleted) {
+                    updated = prev.map((req) =>
+                      req.id === mappedAlert.id ? mappedAlert : req
+                    );
+                    if (!prev.some((req) => req.id === mappedAlert.id)) {
+                      updated = [mappedAlert, ...prev];
+                    }
+                  } else {
+                    updated = prev.filter((req) => req.id !== mappedAlert.id);
                   }
-                } else {
-                  updated = prev.filter((req) => req.id !== newRequest.id);
+                } else if (payload.eventType === 'DELETE') {
+                  updated = prev.filter((req) => req.id !== (payload.old as { id: string }).id);
                 }
-              } else if (payload.eventType === 'DELETE') {
-                updated = prev.filter((req) => req.id !== payload.old.id);
-              }
-              return updated;
-            });
+                return updated;
+              });
+            }
           }
         )
         .subscribe();
@@ -307,15 +378,17 @@ const ResponderDashboard = () => {
 
   // Filter requests within 50km radius
   const filterRequestsWithinRadius = useCallback(
-    (list: SOSRequest[]) => {
+    (list: EmergencyAlert[]) => {
       if (!currentLocation) return list;
       return list.filter((request) => {
-        if (!request.latitude || !request.longitude) return false;
+        const lat = request.latitude ?? request.location_lat;
+        const lng = request.longitude ?? request.location_lng;
+        if (!lat || !lng) return false;
         const distance = calculateDistance(
           currentLocation.lat,
           currentLocation.lng,
-          Number(request.latitude),
-          Number(request.longitude)
+          Number(lat),
+          Number(lng)
         );
         return distance <= 50;
       });
@@ -566,17 +639,19 @@ const ResponderDashboard = () => {
                 <AIRouteOptimizer
                   alerts={visibleRequests.map(r => ({
                     id: r.id,
-                    location_lat: Number(r.latitude) || 0,
-                    location_lng: Number(r.longitude) || 0,
-                    type: r.emergency_type,
+                    location_lat: Number(r.latitude ?? r.location_lat) || 0,
+                    location_lng: Number(r.longitude ?? r.location_lng) || 0,
+                    type: r.emergency_type || r.type,
                     status: r.status,
                     description: r.description || undefined,
                   }))}
                   responderLocation={currentLocation}
                   onNavigate={(requestId) => {
                     const request = visibleRequests.find(r => r.id === requestId);
-                    if (request && request.latitude && request.longitude) {
-                      window.open(`https://www.google.com/maps?q=${request.latitude},${request.longitude}`, '_blank');
+                    const lat = request?.latitude ?? request?.location_lat;
+                    const lng = request?.longitude ?? request?.location_lng;
+                    if (request && lat && lng) {
+                      window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
                     }
                   }}
                 />
@@ -661,7 +736,7 @@ const ResponderDashboard = () => {
                       <Card
                         key={request.id}
                         className={`border-l-4 hover:shadow-xl transition-all duration-300 bg-white rounded-lg overflow-hidden ${
-                          request.status === 'active' || request.status === 'pending' ? 'border-l-red-500 shadow-red-50' :
+                          request.status === 'active' ? 'border-l-red-500 shadow-red-50' :
                           request.status === 'acknowledged' ? 'border-l-blue-500 shadow-blue-50' :
                           'border-l-gray-500'
                         }`}
@@ -670,15 +745,15 @@ const ResponderDashboard = () => {
                           <div className="flex flex-col space-y-4 lg:flex-row lg:items-start lg:justify-between lg:space-y-0">
                             <div className="flex items-start space-x-4 flex-1 min-w-0">
                               <div className="flex-shrink-0 p-2.5 bg-gradient-to-br from-red-100 to-red-200 rounded-lg shadow-sm">
-                                {getAlertIcon(request.emergency_type)}
+                                {getAlertIcon(request.emergency_type || request.type)}
                               </div>
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex flex-wrap items-center gap-2 mb-3">
                                   <Badge
-                                    className={`${getAlertTypeColor(request.emergency_type)} text-xs font-medium px-2 py-0.5`}
+                                    className={`${getAlertTypeColor(request.emergency_type || request.type)} text-xs font-medium px-2 py-0.5`}
                                   >
-                                    {request.emergency_type.toUpperCase()}
+                                    {(request.emergency_type || request.type).toUpperCase()}
                                   </Badge>
                                   <Badge
                                     className={`${getStatusColor(request.status)} text-xs font-medium px-2 py-0.5`}
@@ -707,7 +782,7 @@ const ResponderDashboard = () => {
                                   
                                   <p className="text-sm text-gray-700">
                                     <span className="font-semibold">Location: </span>
-                                    {request.user_address || `${request.latitude?.toFixed(4)}, ${request.longitude?.toFixed(4)}`}
+                                    {request.user_address || request.location_description || `${(request.latitude ?? request.location_lat)?.toFixed(4)}, ${(request.longitude ?? request.location_lng)?.toFixed(4)}`}
                                   </p>
 
                                   {request.description && (
@@ -743,7 +818,7 @@ const ResponderDashboard = () => {
                                 </Button>
                               )}
 
-                              {(request.status === 'active' || request.status === 'pending') && (
+                              {(request.status === 'active') && (
                                 <Button
                                   size="sm"
                                   onClick={() => handleStatusUpdate(request.id, 'acknowledged')}
@@ -754,22 +829,22 @@ const ResponderDashboard = () => {
                                 </Button>
                               )}
 
-                              {request.status === 'acknowledged' && (
+                              {(request.status === 'acknowledged' || request.status === 'responding') && (
                                 <Button
                                   size="sm"
-                                  onClick={() => handleStatusUpdate(request.id, 'resolved')}
+                                  onClick={() => handleStatusUpdate(request.id, 'completed')}
                                   className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white w-full shadow-md hover:shadow-lg transition-all duration-200 font-semibold"
                                 >
                                   <History className="h-4 w-4 mr-2" />
-                                  Resolve
+                                  Complete
                                 </Button>
                               )}
 
                               <NavigationButton
                                 userLat={currentLocation?.lat}
                                 userLng={currentLocation?.lng}
-                                destLat={Number(request.latitude)}
-                                destLng={Number(request.longitude)}
+                                destLat={Number(request.latitude ?? request.location_lat)}
+                                destLng={Number(request.longitude ?? request.location_lng)}
                               />
                             </div>
                           </div>
@@ -799,9 +874,9 @@ const ResponderDashboard = () => {
             <div className="bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
               <AIPredictiveHotspots
                 emergencyHistory={[...sosRequests, ...historyRequests].map(r => ({
-                  location_lat: Number(r.latitude) || 0,
-                  location_lng: Number(r.longitude) || 0,
-                  type: r.emergency_type,
+                  location_lat: Number(r.latitude ?? r.location_lat) || 0,
+                  location_lng: Number(r.longitude ?? r.location_lng) || 0,
+                  type: r.emergency_type || r.type,
                   created_at: r.created_at || new Date().toISOString(),
                 }))}
                 currentLocation={currentLocation}
@@ -866,12 +941,12 @@ const ResponderDashboard = () => {
                       <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                         <div className="flex items-start space-x-4 flex-1">
                           <div className="p-3 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg">
-                            {getAlertIcon(request.emergency_type)}
+                            {getAlertIcon(request.emergency_type || request.type)}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <Badge className={`${getAlertTypeColor(request.emergency_type)} text-xs font-medium px-2 py-0.5`}>
-                                {request.emergency_type.toUpperCase()}
+                              <Badge className={`${getAlertTypeColor(request.emergency_type || request.type)} text-xs font-medium px-2 py-0.5`}>
+                                {(request.emergency_type || request.type).toUpperCase()}
                               </Badge>
                               <Badge className={`${getStatusColor(request.status)} text-xs font-medium px-2 py-0.5`}>
                                 {request.status.toUpperCase()}
@@ -881,7 +956,7 @@ const ResponderDashboard = () => {
                               {request.user_name}
                             </p>
                             <p className="text-sm text-gray-600 mb-1">
-                              {request.user_address || `${request.latitude?.toFixed(4)}, ${request.longitude?.toFixed(4)}`}
+                              {request.user_address || request.location_description || `${(request.latitude ?? request.location_lat)?.toFixed(4)}, ${(request.longitude ?? request.location_lng)?.toFixed(4)}`}
                             </p>
                             {request.description && (
                               <p className="text-sm text-gray-500 italic mb-2">

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle2, XCircle, Clock, User, Phone, Mail, Droplet, MessageCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, User, Phone, Mail, Droplet, MessageCircle, History } from 'lucide-react';
 
 interface UserHospitalRequest {
   id: string;
@@ -39,9 +39,11 @@ const HospitalRequestsManager = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [requests, setRequests] = useState<UserHospitalRequest[]>([]);
+  const [historyRequests, setHistoryRequests] = useState<UserHospitalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<UserHospitalRequest | null>(null);
   const [showDialog, setShowDialog] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [action, setAction] = useState<'approve' | 'reject' | null>(null);
   const [responseText, setResponseText] = useState('');
   const [unitsApproved, setUnitsApproved] = useState(1);
@@ -59,7 +61,8 @@ const HospitalRequestsManager = () => {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      // Fetch only pending requests (unresponded)
+      const { data: pendingData, error: pendingError } = await supabase
         .from('user_hospital_blood_requests')
         .select(`
           *,
@@ -69,18 +72,43 @@ const HospitalRequestsManager = () => {
           )
         `)
         .eq('hospital_id', user.id)
+        .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (pendingError) throw pendingError;
 
-      const requestsWithNames = (data || []).map((req: any) => ({
+      // Fetch history (approved and rejected)
+      const { data: historyData, error: historyError } = await supabase
+        .from('user_hospital_blood_requests')
+        .select(`
+          *,
+          profiles:user_id (
+            first_name,
+            last_name
+          )
+        `)
+        .eq('hospital_id', user.id)
+        .in('status', ['approved', 'rejected'])
+        .order('responded_at', { ascending: false });
+
+      if (historyError) throw historyError;
+
+      const pendingWithNames = (pendingData || []).map((req: any) => ({
         ...req,
         user_name: req.profiles 
           ? `${req.profiles.first_name || ''} ${req.profiles.last_name || ''}`.trim() 
           : 'Unknown User'
       }));
 
-      setRequests(requestsWithNames);
+      const historyWithNames = (historyData || []).map((req: any) => ({
+        ...req,
+        user_name: req.profiles 
+          ? `${req.profiles.first_name || ''} ${req.profiles.last_name || ''}`.trim() 
+          : 'Unknown User'
+      }));
+
+      setRequests(pendingWithNames);
+      setHistoryRequests(historyWithNames);
     } catch (error: any) {
       console.error('Error fetching requests:', error);
       toast({
@@ -246,11 +274,31 @@ const HospitalRequestsManager = () => {
 
   return (
     <div className="space-y-4">
+      {/* Header with History Button */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Showing {requests.length} pending request{requests.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => setShowHistoryDialog(true)}
+          className="flex items-center gap-2"
+        >
+          <History className="h-4 w-4" />
+          View History ({historyRequests.length})
+        </Button>
+      </div>
+
       {requests.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">No blood requests received</p>
+            <p className="text-muted-foreground">No pending blood requests</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              All requests have been responded to. Check history for past requests.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -408,6 +456,110 @@ const HospitalRequestsManager = () => {
                 {processing ? 'Processing...' : action === 'approve' ? 'Approve' : 'Reject'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Request History
+            </DialogTitle>
+            <DialogDescription>
+              View all approved and rejected blood requests
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            {historyRequests.length === 0 ? (
+              <div className="text-center py-12">
+                <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">No history available</p>
+              </div>
+            ) : (
+              historyRequests.map((request) => (
+                <Card key={request.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CardTitle className="text-lg">{request.user_name}</CardTitle>
+                          {getStatusBadge(request.status)}
+                          {getUrgencyBadge(request.urgency_level)}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Droplet className="h-4 w-4 text-red-600" />
+                            <span>{request.blood_group}</span>
+                          </div>
+                          <span>{request.units_required} units required</span>
+                          {request.status === 'approved' && (
+                            <span className="text-green-600 font-medium">{request.units_approved} units approved</span>
+                          )}
+                          {request.responded_at && (
+                            <span className="text-xs">
+                              Responded: {new Date(request.responded_at).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {request.patient_name && (
+                        <div>
+                          <span className="text-sm font-medium">Patient: </span>
+                          <span className="text-sm">{request.patient_name}</span>
+                          {request.patient_age && <span className="text-sm text-muted-foreground"> ({request.patient_age} years)</span>}
+                        </div>
+                      )}
+                      {request.patient_condition && (
+                        <div>
+                          <span className="text-sm font-medium">Condition: </span>
+                          <span className="text-sm">{request.patient_condition}</span>
+                        </div>
+                      )}
+                      <div className="grid md:grid-cols-2 gap-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          <span>{request.contact_phone}</span>
+                        </div>
+                        {request.contact_email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span>{request.contact_email}</span>
+                          </div>
+                        )}
+                      </div>
+                      {request.description && (
+                        <div className="text-sm">
+                          <span className="font-medium">Details: </span>
+                          <span>{request.description}</span>
+                        </div>
+                      )}
+                      {request.hospital_response && (
+                        <div className={`p-3 rounded-lg ${
+                          request.status === 'approved' 
+                            ? 'bg-green-50 border border-green-200' 
+                            : 'bg-red-50 border border-red-200'
+                        }`}>
+                          <span className="text-sm font-medium">
+                            {request.status === 'approved' ? 'Approval Response: ' : 'Rejection Reason: '}
+                          </span>
+                          <span className="text-sm">{request.hospital_response}</span>
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground pt-2 border-t">
+                        Requested: {new Date(request.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>

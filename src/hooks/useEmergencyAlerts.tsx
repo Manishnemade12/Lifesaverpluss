@@ -52,6 +52,9 @@ export const useEmergencyAlerts = (shouldSubscribe: boolean = true) => {
 
       if (profile.user_type === 'user') {
         query = query.eq('user_id', user.id);
+      } else if (profile.user_type === 'responder') {
+        // Filter to show only alerts assigned to this responder
+        query = query.eq('responder_id', user.id);
       }
 
       const { data, error } = await query;
@@ -111,14 +114,24 @@ export const useEmergencyAlerts = (shouldSubscribe: boolean = true) => {
 
       const channel = supabase.channel(channelName);
       
+      // Build filter for real-time subscription based on user type
+      let filter: any = {
+        event: '*',
+        schema: 'public',
+        table: 'emergency_alerts',
+      };
+
+      // Add filter for responders to only receive alerts assigned to them
+      if (profile.user_type === 'responder') {
+        filter.filter = `responder_id=eq.${user.id}`;
+      } else if (profile.user_type === 'user') {
+        filter.filter = `user_id=eq.${user.id}`;
+      }
+      
       channel
         .on(
           'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'emergency_alerts',
-          },
+          filter,
           (payload) => {
             console.log('Real-time alert update received:', payload);
             fetchAlerts();

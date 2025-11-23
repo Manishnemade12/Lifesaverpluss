@@ -97,6 +97,9 @@ const HospitalAuth = () => {
           return;
         }
 
+        // Wait for auth state to propagate
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: hospital, error } = await supabase
@@ -111,8 +114,9 @@ const HospitalAuth = () => {
               description: "Welcome to your hospital dashboard."
             });
 
+            // Give auth context time to update, then navigate
             setTimeout(() => {
-              navigate('/dashboard/hospital');
+              navigate('/dashboard/hospital', { replace: true });
             }, 300);
           } else {
             toast({

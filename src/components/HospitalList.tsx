@@ -37,30 +37,41 @@ const HospitalList = () => {
 
   useEffect(() => {
     fetchHospitals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchHospitals = async () => {
     try {
       setLoading(true);
       
-      // Fetch all hospitals
-      const { data: hospitalData, error: hospitalError } = await supabase
-        .from('hospital_profiles')
+      // Fetch all hospitals (show all, not just available ones)
+      const { data: hospitalData, error: hospitalError } = await (supabase
+        .from('hospital_profiles' as never)
         .select('*')
-        .eq('is_available', true);
+        .order('hospital_name', { ascending: true }) as unknown as { data: Hospital[] | null; error: { message: string } | null });
 
-      if (hospitalError) throw hospitalError;
+      if (hospitalError) {
+        console.error('Error fetching hospitals:', hospitalError);
+        throw hospitalError;
+      }
+
+      console.log('Fetched hospitals:', hospitalData?.length || 0);
 
       // Fetch inventory for all hospitals
-      const { data: inventoryData, error: inventoryError } = await supabase
-        .from('hospital_blood_inventory')
-        .select('*');
+      const { data: inventoryData, error: inventoryError } = await (supabase
+        .from('hospital_blood_inventory' as never)
+        .select('*') as unknown as { data: HospitalInventory[] | null; error: { message: string } | null });
 
-      if (inventoryError) throw inventoryError;
+      if (inventoryError) {
+        console.error('Error fetching inventory:', inventoryError);
+        throw inventoryError;
+      }
+
+      console.log('Fetched inventory items:', inventoryData?.length || 0);
 
       // Group inventory by hospital
       const inventoryMap = new Map<string, HospitalInventory[]>();
-      inventoryData?.forEach(item => {
+      (inventoryData || []).forEach((item: HospitalInventory) => {
         if (!inventoryMap.has(item.hospital_id)) {
           inventoryMap.set(item.hospital_id, []);
         }
@@ -83,11 +94,21 @@ const HospitalList = () => {
       hospitalsWithInventory.sort((a, b) => b.total_units - a.total_units);
       
       setHospitals(hospitalsWithInventory);
-    } catch (error: any) {
+      console.log('Final hospitals with inventory:', hospitalsWithInventory.length);
+      
+      if (hospitalsWithInventory.length === 0) {
+        toast({
+          title: 'No Hospitals Found',
+          description: 'No hospitals are currently registered in the system.',
+          variant: 'default',
+        });
+      }
+    } catch (error: unknown) {
       console.error('Error fetching hospitals:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch hospitals. Please try again.';
       toast({
         title: 'Error',
-        description: 'Failed to fetch hospitals',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
